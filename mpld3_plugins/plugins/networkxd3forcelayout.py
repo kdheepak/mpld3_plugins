@@ -6,17 +6,12 @@ Copyright (C) 2016 Dheepak Krishnamurthy
 """
 
 import mpld3
-
 from networkx.readwrite.json_graph import node_link_data
 
 class NetworkXD3ForceLayout(mpld3.plugins.PluginBase):
     """A NetworkX to D3 Force Layout Plugin"""
 
     JAVASCRIPT = """
-
-    coords = null;
-    plugin = null;
-    graph_debug = null;
 
     mpld3.register_plugin("networkxd3forcelayout", NetworkXD3ForceLayoutPlugin);
     NetworkXD3ForceLayoutPlugin.prototype = Object.create(mpld3.Plugin.prototype);
@@ -66,19 +61,13 @@ class NetworkXD3ForceLayout(mpld3.plugins.PluginBase):
     }
 
     NetworkXD3ForceLayoutPlugin.prototype.zoomed = function() {
-
-            var stroke = this.zoomScaleStroke()
-            var radius = this.zoomScaleRadius()
-
-            this.link.style("stroke-width",stroke);
-            this.node.attr("r", radius);
-
-            this.svg.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            this.tick()
         }
 
     NetworkXD3ForceLayoutPlugin.prototype.draw = function(){
 
         plugin = this
+        brush = this.fig.getBrush();
 
         DEFAULT_NODE_SIZE = this.props.nominal_radius;
 
@@ -91,7 +80,6 @@ class NetworkXD3ForceLayout(mpld3.plugins.PluginBase):
         var link_distance = this.props.link_distance.toFixed()
         var link_strength = this.props.link_strength.toFixed()
         var friction = this.props.friction.toFixed()
-        console.log(gravity)
 
         this.ax = mpld3.get_element(this.props.ax_id, this.fig)
 
@@ -106,10 +94,8 @@ class NetworkXD3ForceLayout(mpld3.plugins.PluginBase):
 
         var color = d3.scale.category20();
 
-        console.log(width, height)
-
-        this.xScale = d3.scale.linear()//.domain([0, width]).range([0, width]) // ax.x;
-        this.yScale = d3.scale.linear()//.domain([0, height]).range([height, 0]) // ax.y;
+        this.xScale = d3.scale.linear().domain([0, 1]).range([0, width]) // ax.x;
+        this.yScale = d3.scale.linear().domain([0, 1]).range([height, 0]) // ax.y;
 
         this.force = d3.layout.force()
                             .size([width, height]);
@@ -162,13 +148,13 @@ class NetworkXD3ForceLayout(mpld3.plugins.PluginBase):
 
     NetworkXD3ForceLayoutPlugin.prototype.tick = function() {
 
-        this.link.attr("x1", function (d) { return this.xScale(d.source.x); }.bind(this))
-                 .attr("y1", function (d) { return this.yScale(d.source.y); }.bind(this))
-                 .attr("x2", function (d) { return this.xScale(d.target.x); }.bind(this))
-                 .attr("y2", function (d) { return this.yScale(d.target.y); }.bind(this));
+        this.link.attr("x1", function (d) { return this.ax.x(this.xScale.invert(d.source.x)); }.bind(this))
+                 .attr("y1", function (d) { return this.ax.y(this.yScale.invert(d.source.y)); }.bind(this))
+                 .attr("x2", function (d) { return this.ax.x(this.xScale.invert(d.target.x)); }.bind(this))
+                 .attr("y2", function (d) { return this.ax.y(this.yScale.invert(d.target.y)); }.bind(this));
 
         this.node.attr("transform", function (d) {
-            return "translate(" + this.xScale(d.x) + "," + this.yScale(d.y) + ")";
+            return "translate(" + this.ax.x(this.xScale.invert(d.x)) + "," + this.ax.y(this.yScale.invert(d.y)) + ")";
             }.bind(this)
         );
 
@@ -194,8 +180,8 @@ class NetworkXD3ForceLayout(mpld3.plugins.PluginBase):
 
         function dragged(d) {
             var mouse = d3.mouse(svg.node());
-            d.x = this.xScale.invert(mouse[0]);
-            d.y = this.yScale.invert(mouse[1]);
+            d.x = this.xScale(this.ax.x.invert(mouse[0]));
+            d.y = this.yScale(this.ax.y.invert(mouse[1]));
             d.px = d.x;
             d.py = d.y;
             d.fixed = true;
